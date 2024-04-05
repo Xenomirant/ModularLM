@@ -3,6 +3,7 @@ from minio.error import S3Error
 import config
 import io
 import pickle as pkl
+from typing import Optional
 
 import sys
 import time
@@ -195,7 +196,7 @@ class MinioHandler(object):
                             )
         return None
 
-    def get_object(self, object_name: str, *, dir: str = "ModularLM/", bucket: str = "public", unpickle: bool = True):
+    def get_object(self, object_name: str, *, dir: str = "ModularLM/", bucket: str = "public", type: Optional[str] = None, unpickle: bool = False):
         '''
         Loads bytes-like object from Minio and unpickles it if necessary
         '''
@@ -207,7 +208,12 @@ class MinioHandler(object):
             res.release_conn()
 
         if unpickle:
-            obj = pkl.loads(obj)        
-            
+            obj = pkl.loads(obj)
+            return obj
+
+        if type == "model":
+            obj = io.BytesIO(obj)
+            return obj
         return obj
+        
         
