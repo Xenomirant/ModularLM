@@ -22,12 +22,12 @@ class PairsDataset(torch.utils.data.Dataset):
         text1 = self.tokenizer(self.dataset.loc[idx]['base'],
                      padding='max_length',
                      truncation=True,
-                     max_length=self.SEQ_LEN)
+                     max_length=self.SEQ_LEN,)
 
         text2 = self.tokenizer(self.dataset.loc[idx]['polypers'],
                      padding='max_length',
                      truncation=True,
-                     max_length=self.SEQ_LEN)
+                     max_length=self.SEQ_LEN,)
 
         return text1, text2
 
