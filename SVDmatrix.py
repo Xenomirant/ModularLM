@@ -5,8 +5,10 @@ import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm.auto import trange, tqdm
+import sys
+import typing
 
-
+Array = typing.TypeVar('Array')
 
 class GetSVD(object):
     '''
@@ -15,13 +17,12 @@ class GetSVD(object):
     TODO: rewrite using dask for CuPy usage. Also makes possible to compute for larger matrices when necessary
     '''
 
-    def __init__(self, *, model: nn.Module, dataloader: torch.utils.data.DataLoader, division_layer: int = None) -> None:
+    def __init__(self, *, model: nn.Module, dataloader: torch.utils.data.DataLoader, division_layer: int = None, mean_over_changed: bool = True) -> None:
         '''
         model: nn.Module with forward()
         dataloader: data with two columns that are diffed
         division_layer: actual division layer of model -- currently adds +1 as bert returns embedding outputs as zero layer
-        
-        TODO: custom selection of target tokens in the input
+        mean_over_changed: bool, whether to take same values into account before 
         '''
         self.model = model
         self.dataloader = dataloader
@@ -55,14 +56,36 @@ class GetSVD(object):
     
         return None
 
-    def compute_svd(self, matrix = None):
+    def compute_svd(self, matrix = None, compute_uv: bool = False):
         '''
         Can compute SVD on any matrix -- if not specified, gets matrix from precomputed
         '''
         if matrix is None:
             matrix = np.array(self.matrix)
-        self.svd = scipy.linalg.svd(matrix, overwrite_a = True, full_matrices = False)
+        self.svd = scipy.linalg.svd(matrix, overwrite_a = True, full_matrices = False, compute_uv=compute_uv)
         print("SVD computed")
         return self.svd
 
-        
+
+def compute_anisotropy(matrix: Array, write_to_file: typing.Optional[str] = None) -> float:
+    '''
+    Computes anisotropy for a given matrix
+    Params:
+    matrix -- array for computation
+    write_to_file -- whether to write to the specified filename; if not, returns as output
+    '''
+    res = scipy.linalg.svd(matrix, overwrite_a = True, full_matrices = False, compute_uv=False)
+
+    anisotropy = res[0]**2 / np.sum(res**2)
+
+    if write_to_file is None:
+        return anisotropy
+
+    with open(write_to_file, "a") as f:
+        print(anisotropy, end="\n", file = f)
+    return None
+    
+
+
+
+    

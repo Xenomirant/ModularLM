@@ -9,6 +9,7 @@ import sys
 import time
 from queue import Empty, Queue
 from threading import Thread
+import functools
 
 _BAR_SIZE = 20
 _KILOBYTE = 1024
@@ -176,8 +177,12 @@ class MinioHandler(object):
                     access_key=config.Minio_login, 
                     secret_key=config.Minio_password,
                   secure=False)
+        self.fput_object = functools.partial(self.minio.fput_object, bucket_name="public",)                          
+        
+        return None
     
-    def put_object(self, obj: object, *, save_name: str, dir: str = "ModularLM/", bucket: str = "public", pickle: bool = False):
+    def put_object(self, obj: object, *, save_name: str, dir: str = "ModularLM/", bucket: str = "public", 
+                   pickle: bool = False):
         '''
         Sends any python object to Minio -- object must be a file or memory buffer
         If object isn't pickle, pickling to BytesIO is provided        
@@ -195,6 +200,7 @@ class MinioHandler(object):
                             progress = Progress(),
                             )
         return None
+        
 
     def get_object(self, object_name: str, *, dir: str = "ModularLM/", bucket: str = "public", type: Optional[str] = None, unpickle: bool = False):
         '''
