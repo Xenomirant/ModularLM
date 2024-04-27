@@ -29,5 +29,8 @@ class PairsDataset(torch.utils.data.Dataset):
                      truncation=True,
                      max_length=self.SEQ_LEN,)
 
+        if "base_mask" in self.dataset.columns:
+            return text1, text2, list(map(int, self.dataset.loc[idx]["base_mask"].strip("][").split(" "))), list(map(int, self.dataset.loc[idx]["polypers_mask"].strip("][").split(" ")))
+
         return text1, text2
 
