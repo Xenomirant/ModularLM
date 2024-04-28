@@ -27,8 +27,9 @@ def write_to_file(func):
     def wrapper(write_to_file = None, *args, **kwargs):
         if write_to_file is None:
             return func(*args, **kwargs)
+        res = func(*args, **kwargs)
         with open(write_to_file, "a") as f:
-            print(func(*args, **kwargs), end="\n", file=f)
+            print(res, end="\n", file=f)
         return None
     return wrapper
         

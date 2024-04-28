@@ -31,12 +31,15 @@ class GetSVD(object):
         self.svd = None
         
 
-    def get_matrix(self, division_layer = None):
+    def get_matrix(self, division_layer = None, use_masks = True):
 
         if division_layer is None:
             division_layer = self.division_layer
+
+        # reset matrix
+        self.matrix = []
         
-        ## add one to mitigate design flaws of the model
+        # add one to mitigate design flaws of the model
         division_layer += 1
     
         self.model.eval()
@@ -48,9 +51,16 @@ class GetSVD(object):
         
                     pred_new = self.model(**{k: v.to(self.model.device) for k, v in batch[1].items()},
                                  output_hidden_states=True)  
-        
-                    hid_ref = torch.mean(pred.hidden_states[self.division_layer], dim=1)
-                    hid_cur = torch.mean(pred_new.hidden_states[self.division_layer], dim=1)
+
+                    hid_ref = pred.hidden_states[self.division_layer]
+                    hid_cur = pred_new.hidden_states[self.division_layer]
+
+                    if use_masks:
+                        hid_ref *= batch[2].unsqueeze(-1).to(self.model.device)
+                        hid_cur *= batch[3].unsqueeze(-1).to(self.model.device)
+
+                    hid_ref = torch.mean(hid_ref, dim = 1)
+                    hid_cur = torch.mean(hid_cur, dim = 1)
         
                     self.matrix.extend(hid_ref.detach().cpu().numpy() - hid_cur.detach().cpu().numpy())
     
@@ -84,8 +94,3 @@ def compute_anisotropy(matrix: Array, write_to_file: typing.Optional[str] = None
     with open(write_to_file, "a") as f:
         print(anisotropy, end="\n", file = f)
     return None
-    
-
-
-
-    
