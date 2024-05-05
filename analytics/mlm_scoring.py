@@ -11,7 +11,7 @@ class ValueCounter:
         count: int = field(default=0)
 
 
-def ppl_mlm_score(model, dataloader, *, top_k: int, PPL_metric: str="within_word_l2r") -> (list[float], list[float], dict, dict):
+def ppl_mlm_score(model, dataloader, *, seq_len: int, top_k: int, PPL_metric: str="within_word_l2r") -> (list[float], list[float], dict, dict):
     '''
     Model -- MLM trained model to test perplexity
     Dataloader -- used for batching, nothing else. Should return batched sentences from dataset, not their indices.
@@ -35,21 +35,22 @@ def ppl_mlm_score(model, dataloader, *, top_k: int, PPL_metric: str="within_word
     def sort(tkn_dict):
         return sorted(tkn_dict.items(), key=lambda x: x[1].values/x[1].count)
         
-
+    try:
+        
+        base_scores = []
+        poly_scores = []
+        tkn_dict_base = defaultdict(ValueCounter)
+        tkn_dict_poly = defaultdict(ValueCounter)
+        
+        for batch in tqdm(dataloader):
     
-    base_scores = []
-    poly_scores = []
-    tkn_dict_base = defaultdict(ValueCounter)
-    tkn_dict_poly = defaultdict(ValueCounter)
-    
-    for batch in tqdm(dataloader):
-
-        base_scores, tkn_dict_base = score_type(
-            sent_type="base", scores=base_scores, tkn_dict=tkn_dict_base
-        )
-        poly_scores, tkn_dict_poly = score_type(
-            sent_type="polypers", scores=poly_scores, tkn_dict=tkn_dict_poly
-        )
-
-    return base_scores, poly_scores, sort(tkn_dict_base), sort(tkn_dict_poly) 
+            base_scores, tkn_dict_base = score_type(
+                sent_type="base", scores=base_scores, tkn_dict=tkn_dict_base
+            )
+            poly_scores, tkn_dict_poly = score_type(
+                sent_type="polypers", scores=poly_scores, tkn_dict=tkn_dict_poly
+            )
+    except KeyboardInterrupt:
+        pass
+    return base_scores, poly_scores, tkn_dict_base, tkn_dict_poly
     
