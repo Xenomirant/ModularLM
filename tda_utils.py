@@ -12,10 +12,6 @@ warnings.filterwarnings("ignore")
 
 Stats = namedtuple('Stats', ["entropy", "mean", "std"])
 
-# TODO for further regularization experiments without projection
-def pers_entropy_loss(points: torch.Tensor):
-    pass
-
 
 # from Birdal et al, Intrinsic Dimension, Persistent Homology and Generalization in Neural Networks (NIPS 2021)
 def sample_W(W, nSamples, isRandom=True):
@@ -112,7 +108,7 @@ def entropy_loss(points: torch.TensorType, max_dim: int = 2):
     return ent + ent0
 
 
-def diagram_divergence_loss(ref: torch.Tensor, cur: torch.Tensor, max_dim: int = 2):
+def diagram_divergence_loss(ref: torch.Tensor, cur: torch.Tensor, max_dim: int = 2, num_samples: int = 100):
 
     was_dist = .0
     
@@ -127,14 +123,14 @@ def diagram_divergence_loss(ref: torch.Tensor, cur: torch.Tensor, max_dim: int =
     crit_ref0 = torch.norm(ref[ind0_ref[:, (0, 1)]] - ref[ind0_ref[:,(0, 2)]], dim=-1)
     crit_cur0 = torch.norm(cur[ind0_cur[:, (0, 1)]] - cur[ind0_cur[:,(0, 2)]], dim=-1)
 
-    zero_ord_dist = ot.sliced_wasserstein_distance(crit_ref0, crit_cur0)
+    zero_ord_dist = ot.sliced_wasserstein_distance(crit_ref0, crit_cur0, n_projections=num_samples)
 
     for i in range(len(ind1_cur)):
         
         crit_ref = torch.norm(ref[ind1_ref[i][:, (0, 2)]] - ref[ind1_ref[i][:,(1, 3)]], dim=-1)
         crit_cur = torch.norm(cur[ind1_cur[i][:, (0, 2)]] - cur[ind1_cur[i][:,(1, 3)]], dim=-1)
 
-        was_dist += ot.sliced_wasserstein_distance(crit_ref, crit_cur)
+        was_dist += ot.sliced_wasserstein_distance(crit_ref, crit_cur, n_projections=num_samples)
 
     return was_dist
     
