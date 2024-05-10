@@ -2,6 +2,7 @@ import numpy as np
 import gudhi as gd
 import gudhi.representations
 import torch
+import ot
 from collections import namedtuple
 from ripser import ripser
 from functools import wraps
@@ -85,3 +86,55 @@ def compute_tda_features(points: torch.Tensor, *, max_dim: int = 2):
     bar_length = bars[:, 1] - bars[:, 0]
 
     return Stats(stat_ent, np.mean(bar_length), np.std(bar_length))
+
+
+def entropy_loss(points: torch.TensorType, max_dim: int = 2):
+
+    # Note: may consider using log1p with \frac{\sum_{i!=j} p_i}{\sum_i p_i}
+    
+    # default value
+    ent = 0
+    # compute persistence
+    vr = gh.RipsComplex(points=points).create_simplex_tree(max_dimension=max_dim)
+    vr.compute_persistence()
+    # get critical simplices
+    ind0, ind1 = vr.flag_persistence_generators()[:-2]
+    
+    res0 = torch.norm(points[ind0[:, 1]] - points[ind0[:, 2]], dim=-1)
+    ent0 = -torch.sum((res0/torch.sum(res0))*torch.log(res0/torch.sum(res0)))
+    
+    # compute entropy for higher dimensional simplices 
+    for i in ind1:
+        res = torch.norm(points[i[:, (0, 2)]] - points[i[:, (1, 3)]], dim=-1)
+        lens = res[:, 1] - res[:, 0]
+        ent += -torch.sum((lens/torch.sum(lens))*torch.log(lens/torch.sum(lens)))
+        
+    return ent + ent0
+
+
+def diagram_divergence_loss(ref: torch.Tensor, cur: torch.Tensor, max_dim: int = 2):
+
+    was_dist = .0
+    
+    vr_ref = gh.RipsComplex(points=ref).create_simplex_tree(max_dimension=max_dim)
+    vr_ref.compute_persistence()
+    vr_cur = gh.RipsComplex(points=cur).create_simplex_tree(max_dimension=max_dim)
+    vr_cur.compute_persistence()
+
+    ind0_ref, ind1_ref = vr_ref.flag_persistence_generators()[:-2]
+    ind0_cur, ind1_cur = vr_ref.flag_persistence_generators()[:-2]
+
+    crit_ref0 = torch.norm(ref[ind0_ref[:, (0, 1)]] - ref[ind0_ref[:,(0, 2)]], dim=-1)
+    crit_cur0 = torch.norm(cur[ind0_cur[:, (0, 1)]] - cur[ind0_cur[:,(0, 2)]], dim=-1)
+
+    zero_ord_dist = ot.sliced_wasserstein_distance(crit_ref0, crit_cur0)
+
+    for i in range(len(ind1_cur)):
+        
+        crit_ref = torch.norm(ref[ind1_ref[i][:, (0, 2)]] - ref[ind1_ref[i][:,(1, 3)]], dim=-1)
+        crit_cur = torch.norm(cur[ind1_cur[i][:, (0, 2)]] - cur[ind1_cur[i][:,(1, 3)]], dim=-1)
+
+        was_dist += ot.sliced_wasserstein_distance(crit_ref, crit_cur)
+
+    return was_dist
+    
