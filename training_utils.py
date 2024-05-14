@@ -1,5 +1,28 @@
 import torch
 import numpy as np
+import gc
+from tda_utils import entropy_loss, diagram_divergence_loss
+
+def cleanup():
+
+    gc.collect()
+    torch.cuda.empty_cache()
+
+
+def print_trainable_parameters(model, logger):
+    """
+    Prints the number of trainable parameters in the model.
+    """
+    trainable_params = 0
+    all_param = 0
+    for _, param in model.named_parameters():
+        all_param += param.numel()
+        if param.requires_grad:
+            trainable_params += param.numel()
+    logger.info(
+        f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
+    )
+    return None
 
 
 def save_gradients(model, division_layer, logger):
@@ -125,7 +148,7 @@ class ProjectionLoss:
         '''
         device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.loss = torch.nn.CosineEmbeddingLoss()
-        self.target = -torch.ones(BATCH_SIZE).to(device)
+
         self.weight_cosine = weight_cosine
         self.weight_projection = weight_projection
         subspace_matrix = torch.tensor(subspace_matrix)
@@ -141,3 +164,52 @@ class ProjectionLoss:
         total_loss = cos_loss + proj_loss
         
         return total_loss, cos_loss, proj_loss
+
+
+class EntropyLoss:
+
+    def __init__(self, *, weight_cosine: int = 1, weight_entropy: int = 1, max_dim: int=2, ):
+
+        self.loss = torch.nn.CosineEmbeddingLoss()
+        
+        self.entropy = entropy_loss
+
+        self.weight_cosine = weight_cosine
+        self.weight_entropy = weight_entropy
+        self.max_simplex_dim = max_dim
+
+    def __call__(self, hid_ref, hid_cur, target):
+
+        cos_loss = self.weight_cosine * self.loss(hid_ref, hid_cur, target)
+
+        entropy_loss = self.weight_entropy * self.entropy(hid_cur, max_dim=self.max_simplex_dim)
+
+        total_loss = cos_loss + entropy_loss
+
+        return total_loss, cos_loss, entropy_loss
+
+
+class DiagramDivergenceLoss:
+
+    def __init__(self, *, weight_cosine: int = 1, weight_divergence: int = 1, max_dim: int=2, num_samples=100):
+
+        self.loss = torch.nn.CosineEmbeddingLoss()
+        
+        self.divergence = diagram_divergence_loss
+
+        self.weight_cosine = weight_cosine
+        self.weight_divergence = weight_divergence
+        self.max_simplex_dim = max_dim
+        self.num_samples = num_samples
+
+    def __call__(self, hid_ref, hid_cur, target):
+
+        cos_loss = self.weight_cosine * self.loss(hid_ref, hid_cur, target)
+
+        divergence_loss = self.weight_divergence * self.divergence(ref=hid_ref, cur=hid_cur, 
+                                                                max_dim=self.max_simplex_dim,
+                                                                num_samples=self.num_samples 
+                                                               )
+        total_loss = cos_loss + divergence_loss
+
+        return total_loss, cos_loss, divergence_loss
