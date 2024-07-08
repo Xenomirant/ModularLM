@@ -35,7 +35,7 @@ def write_to_file(func):
         
         
 @write_to_file
-def calculate_ph_dim(W, min_points=150, max_points=800, point_jump=50,  
+def calculate_ph_dim(W, min_points=225, max_points=1000, point_jump=50,  
         h_dim=0, print_error=False):
     
     
